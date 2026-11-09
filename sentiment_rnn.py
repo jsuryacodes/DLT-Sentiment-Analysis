@@ -61,7 +61,68 @@ def train_and_evaluate(model, data, epochs):
     return history, loss, acc
 
 
+def plot_history(history, name):
+    import matplotlib.pyplot as plt
+
+    os.makedirs(RESULTS, exist_ok=True)
+    h = history.history
+    epochs = range(1, len(h["loss"]) + 1)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
+    for ax, metric in ((ax1, "accuracy"), (ax2, "loss")):
+        ax.plot(epochs, h[metric], "o-", label="train")
+        ax.plot(epochs, h["val_" + metric], "s--", label="validation")
+        ax.set(title=f"{name} - {metric}", xlabel="epoch", ylabel=metric)
+        ax.legend()
+        ax.grid(alpha=0.3)
+    fig.tight_layout()
+    path = os.path.join(RESULTS, f"{name}.png")
+    fig.savefig(path, dpi=120)
+    plt.close(fig)
+    print("saved", path)
+
+
+_word_index = None
+
+
+def encode(text):
+    """Turn raw text into the same integer sequence format as keras.datasets.imdb."""
+    global _word_index
+    if _word_index is None:
+        _word_index = keras.datasets.imdb.get_word_index()
+    # imdb.load_data reserves 0=pad, 1=start, 2=out-of-vocabulary, so real word ids are shifted by 3
+    ids = [1]
+    for w in re.findall(r"[a-z0-9']+", text.lower()):
+        i = _word_index.get(w, -1) + 3
+        ids.append(i if 3 <= i < VOCAB_SIZE else 2)
+    return keras.utils.pad_sequences([ids], maxlen=MAX_LEN)
+
+
+def predict(model, text):
+    p = float(model.predict(encode(text), verbose=0)[0, 0])
+    return ("positive" if p >= 0.5 else "negative"), p
+
+
+SAMPLES = [
+    "This movie was absolutely wonderful, the acting was brilliant and I loved the story.",
+    "A total waste of time. The plot was boring and the acting was terrible.",
+    "It had a few good moments but overall I was disappointed.",
+]
+
 if __name__ == "__main__":
     data = load_data()
-    train_and_evaluate(build_baseline(), data, epochs=10)
-    train_and_evaluate(build_rnn(), data, epochs=5)
+    models = [(build_baseline(), 10), (build_rnn(), 5)]
+    rows = []
+    for model, epochs in models:
+        history, loss, acc = train_and_evaluate(model, data, epochs)
+        plot_history(history, model.name)
+        rows.append((model.name, model.count_params(), loss, acc))
+
+    print("\n| Model | Params | Test loss | Test accuracy |\n|---|---|---|---|")
+    for name, params, loss, acc in rows:
+        print(f"| {name} | {params:,} | {loss:.4f} | {acc:.2%} |")
+
+    for text in SAMPLES:
+        print("\n" + text)
+        for model, _ in models:
+            label, p = predict(model, text)
+            print(f"  {model.name}: {label} ({p:.3f})")
