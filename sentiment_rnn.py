@@ -26,6 +26,29 @@ def load_data():
     return (x_train, y_train), (x_test, y_test)
 
 
+def build_baseline():
+    """(a) Embedding + GlobalAveragePooling: averages word vectors, ignores word order."""
+    model = keras.Sequential([
+        keras.Input(shape=(MAX_LEN,)),
+        layers.Embedding(VOCAB_SIZE, EMBED_DIM),
+        layers.GlobalAveragePooling1D(),
+        layers.Dense(16, activation="relu"),
+        layers.Dense(1, activation="sigmoid"),
+    ], name="embedding_gap")
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+    return model
+
+
+def train_and_evaluate(model, data, epochs):
+    (x_train, y_train), (x_test, y_test) = data
+    model.summary()
+    history = model.fit(x_train, y_train, epochs=epochs, batch_size=128,
+                        validation_split=0.2, verbose=2)
+    loss, acc = model.evaluate(x_test, y_test, verbose=0)
+    print(f"{model.name}: test loss={loss:.4f}  test accuracy={acc:.4f}")
+    return history, loss, acc
+
+
 if __name__ == "__main__":
-    (x_train, y_train), (x_test, y_test) = load_data()
-    print("Train:", x_train.shape, "Test:", x_test.shape, "Positive ratio:", y_train.mean())
+    data = load_data()
+    train_and_evaluate(build_baseline(), data, epochs=10)
