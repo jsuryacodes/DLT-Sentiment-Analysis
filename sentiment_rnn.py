@@ -39,6 +39,18 @@ def build_baseline():
     return model
 
 
+def build_rnn():
+    """(b) Embedding + SimpleRNN: reads the review word by word, keeping a hidden state."""
+    model = keras.Sequential([
+        keras.Input(shape=(MAX_LEN,)),
+        layers.Embedding(VOCAB_SIZE, EMBED_DIM),
+        layers.SimpleRNN(32),
+        layers.Dense(1, activation="sigmoid"),
+    ], name="embedding_simplernn")
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+    return model
+
+
 def train_and_evaluate(model, data, epochs):
     (x_train, y_train), (x_test, y_test) = data
     model.summary()
@@ -52,3 +64,4 @@ def train_and_evaluate(model, data, epochs):
 if __name__ == "__main__":
     data = load_data()
     train_and_evaluate(build_baseline(), data, epochs=10)
+    train_and_evaluate(build_rnn(), data, epochs=5)
