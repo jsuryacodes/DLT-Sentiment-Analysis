@@ -83,6 +83,62 @@ def plot_history(history, name):
     print("saved", path)
 
 
+def plot_data_overview():
+    """Class balance and review lengths (before padding) of the training set."""
+    import matplotlib.pyplot as plt
+
+    (x_raw, y), _ = keras.datasets.imdb.load_data(num_words=VOCAB_SIZE)
+    lengths = [len(r) for r in x_raw]
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
+    ax1.bar(["negative", "positive"], np.bincount(y), color=["tab:red", "tab:green"])
+    ax1.set(title="Class distribution (train)", ylabel="number of reviews")
+    ax2.hist(lengths, bins=50, range=(0, 1000), color="tab:blue")
+    ax2.axvline(MAX_LEN, color="black", linestyle="--", label=f"MAX_LEN = {MAX_LEN}")
+    ax2.set(title="Review length (words)", xlabel="words per review", ylabel="number of reviews")
+    ax2.legend()
+    fig.tight_layout()
+    os.makedirs(RESULTS, exist_ok=True)
+    fig.savefig(os.path.join(RESULTS, "data_overview.png"), dpi=120)
+    plt.close(fig)
+    print(f"median length={int(np.median(lengths))}, reviews longer than {MAX_LEN}: "
+          f"{np.mean(np.array(lengths) > MAX_LEN):.0%}")
+
+
+def plot_confusion_matrices(models, x_test, y_test):
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(1, len(models), figsize=(5 * len(models), 4.2))
+    for ax, model in zip(axes, models):
+        y_pred = (model.predict(x_test, verbose=0)[:, 0] >= 0.5).astype(int)
+        cm = tf.math.confusion_matrix(y_test, y_pred).numpy()
+        ax.imshow(cm, cmap="Blues")
+        for i in range(2):
+            for j in range(2):
+                ax.text(j, i, cm[i, j], ha="center", va="center",
+                        color="white" if cm[i, j] > cm.max() / 2 else "black", fontsize=13)
+        ax.set(title=model.name, xlabel="predicted", ylabel="actual",
+               xticks=[0, 1], yticks=[0, 1],
+               xticklabels=["negative", "positive"], yticklabels=["negative", "positive"])
+    fig.tight_layout()
+    fig.savefig(os.path.join(RESULTS, "confusion_matrices.png"), dpi=120)
+    plt.close(fig)
+
+
+def plot_comparison(rows):
+    """Bar chart of test accuracy; rows = [(name, params, loss, acc), ...]."""
+    import matplotlib.pyplot as plt
+
+    names = [r[0] for r in rows]
+    accs = [r[3] * 100 for r in rows]
+    fig, ax = plt.subplots(figsize=(6, 4))
+    bars = ax.bar(names, accs, color=["tab:blue", "tab:orange"])
+    ax.bar_label(bars, fmt="%.2f%%")
+    ax.set(title="Test accuracy comparison", ylabel="accuracy (%)", ylim=(50, 100))
+    fig.tight_layout()
+    fig.savefig(os.path.join(RESULTS, "model_comparison.png"), dpi=120)
+    plt.close(fig)
+
+
 _word_index = None
 
 
@@ -111,6 +167,7 @@ SAMPLES = [
 ]
 
 if __name__ == "__main__":
+    plot_data_overview()
     data = load_data()
     models = [(build_baseline(), 10), (build_rnn(), 5)]
     rows = []
@@ -122,6 +179,8 @@ if __name__ == "__main__":
     print("\n| Model | Params | Test loss | Test accuracy |\n|---|---|---|---|")
     for name, params, loss, acc in rows:
         print(f"| {name} | {params:,} | {loss:.4f} | {acc:.2%} |")
+    plot_comparison(rows)
+    plot_confusion_matrices([m for m, _ in models], *data[1])
 
     for text in SAMPLES:
         print("\n" + text)
