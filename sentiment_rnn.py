@@ -54,8 +54,10 @@ def build_rnn():
 def train_and_evaluate(model, data, epochs):
     (x_train, y_train), (x_test, y_test) = data
     model.summary()
+    # stop when validation loss stops improving and roll back to the best epoch's weights
+    early_stop = keras.callbacks.EarlyStopping(monitor="val_loss", patience=2, restore_best_weights=True)
     history = model.fit(x_train, y_train, epochs=epochs, batch_size=128,
-                        validation_split=0.2, verbose=2)
+                        validation_split=0.2, callbacks=[early_stop], verbose=2)
     loss, acc = model.evaluate(x_test, y_test, verbose=0)
     print(f"{model.name}: test loss={loss:.4f}  test accuracy={acc:.4f}")
     return history, loss, acc
@@ -71,7 +73,7 @@ def plot_history(history, name):
     for ax, metric in ((ax1, "accuracy"), (ax2, "loss")):
         ax.plot(epochs, h[metric], "o-", label="train")
         ax.plot(epochs, h["val_" + metric], "s--", label="validation")
-        ax.set(title=f"{name} - {metric}", xlabel="epoch", ylabel=metric)
+        ax.set(title=f"{name} - {metric}", xlabel="epoch", ylabel=metric, xticks=list(epochs))
         ax.legend()
         ax.grid(alpha=0.3)
     fig.tight_layout()
